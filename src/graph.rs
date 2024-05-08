@@ -29,7 +29,7 @@ fn recursive_build(
     let node_index = graph.add_node(format!(
         " {} | data: {:.4} | grad: {:.4}",
         node.borrow().label,
-        node.borrow().value,
+        node.borrow().data,
         node.borrow().grad
     ));
 
@@ -41,6 +41,8 @@ fn recursive_build(
         let op = match child.borrow().op {
             Some(Op::Add) => "+",
             Some(Op::Mul) => "*",
+            Some(Op::Tanh) => "tanh",
+            Some(Op::Exp) => "exp",
             None => "",
         };
 
@@ -71,6 +73,8 @@ fn build_graph(root_node: &Value) -> Graph {
                 let op_str = match op {
                     Op::Add => "+",
                     Op::Mul => "*",
+                    Op::Tanh => "tanh",
+                    Op::Exp => "exp",
                 };
 
                 let op_index = graph.add_node(op_str.to_string());
@@ -94,6 +98,8 @@ fn build_graph(root_node: &Value) -> Graph {
 
             let (_source1, target1) = (edge1.clone().0.index(), edge1.clone().1.index());
             let (_source2, target2) = (edge2.clone().0.index(), edge2.clone().1.index());
+
+            println!("edge1: {:?}, edge2: {:?}", edge1, edge2);
 
             if target1 == target2 {
                 let op_index = op_hash_map.get(&edge1.1).unwrap();

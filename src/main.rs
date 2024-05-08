@@ -1,5 +1,6 @@
 mod engine;
 mod graph;
+mod neuron;
 
 use engine::Value;
 
@@ -15,19 +16,94 @@ use petgraph::graph::{NodeIndex, UnGraph};
 use crate::graph::create_graphviz;
 
 fn main() {
-    let a = Value::new(2.0, "a");
+    let mut args = std::env::args();
+
+    println!("args: {:?} ", args);
+
+    if args.len() > 1 {
+        let arg = args.nth(1).unwrap();
+        match arg.as_str() {
+            "first" => first_example(),
+            "second" => second_example(),
+            "impl_ops" => impl_ops_example(),
+            "petgraph" => petgraph_example(),
+            _ => println!("Invalid argument"),
+        }
+    } else {
+        first_example();
+    }
+}
+
+fn impl_ops_example() {
+    println!("impl_ops_example");
+    let x1 = Value::new(2.0, "x1");
+    let x2 = Value::new(0.0, "x2");
+
+    let w1 = Value::new(-3.0, "w1");
+    let w2 = Value::new(1.0, "w2");
+
+    let b = Value::new(6.8813735870195432, "b");
+
+    let x1w1 = x1 * w1;
+    x1w1.set_label("x1*w1");
+
+    let x2w2 = x2 * w2;
+    x2w2.set_label("x2*w2");
+
+    let x1w1x2w2 = x1w1 + x2w2;
+    x1w1x2w2.set_label("x1w1 + x2w2");
+
+    let n = x1w1x2w2 + b;
+    n.set_label("n");
+
+    let o = n._tanh("o");
+
+    o.backward();
+
+    create_graphviz(&o, "./plots/backprop_ops.dot");
+}
+
+fn second_example() {
+    let mut x1 = Value::new(2.0, "x1");
+    let mut x2 = Value::new(0.0, "x2");
+
+    let w1 = Value::new(-3.0, "w1");
+    let w2 = Value::new(1.0, "w2");
+
+    let b = Value::new(6.8813735870195432, "b");
+
+    let x1w1 = x1.mul(&w1, "x1*w1");
+    let x2w2 = x2.mul(&w2, "x2*w2");
+
+    let x1w1x2w2 = x1w1.add(&x2w2, "x1w1 + x2w2");
+
+    let n = x1w1x2w2.add(&b, "n");
+
+    let o = n._tanh("o");
+
+    o.backward();
+
+    create_graphviz(&o, "./plots/backprop.dot");
+}
+
+fn first_example() {
+    let mut a = Value::new(2.0, "a");
     let b = Value::new(-3.0, "b");
     let c = Value::new(10.0, "c");
 
     let d = a.mul(&b, "d");
 
-    let e = d.add(&c, "e");
+    let mut e = d.add(&c, "e");
 
     let f = Value::new(-2.0, "f");
 
     let g = e.mul(&f, "g");
 
-    create_graphviz(&g, "./plots/graph.dot");
+    let h = g._tanh("h");
+
+    h.backward();
+
+    create_graphviz(&h, "./plots/graph.dot");
 }
 
 #[warn(dead_code)]
