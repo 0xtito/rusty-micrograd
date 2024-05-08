@@ -1,11 +1,12 @@
 mod engine;
 mod graph;
+mod mlp;
 mod neuron;
 
 use engine::Value;
+use mlp::Layer;
+use neuron::Neuron;
 
-// use ndarray::prelude::*;
-// use ndarray::{arr1, Array};
 use plotters::prelude::*;
 
 use petgraph::algo::{dijkstra, min_spanning_tree};
@@ -14,6 +15,7 @@ use petgraph::dot::{Config, Dot};
 use petgraph::graph::{NodeIndex, UnGraph};
 
 use crate::graph::create_graphviz;
+use crate::mlp::MLP;
 
 fn main() {
     let mut args = std::env::args();
@@ -26,12 +28,151 @@ fn main() {
             "first" => first_example(),
             "second" => second_example(),
             "impl_ops" => impl_ops_example(),
-            "petgraph" => petgraph_example(),
+            "neuron_test" => neuron_test(),
+            "layer_test" => layer_test(),
+            "mlp_test" => mlp_test(),
+            "binary_classifier" => binary_classifier(),
             _ => println!("Invalid argument"),
         }
     } else {
         first_example();
     }
+}
+
+fn binary_classifier() {
+    let x1 = vec![
+        Value::new(2.0, "x1"),
+        Value::new(3.0, "x2"),
+        Value::new(-1.0, "x3"),
+    ];
+    let x2 = vec![
+        Value::new(3.0, "x1"),
+        Value::new(-1.0, "x2"),
+        Value::new(0.5, "x3"),
+    ];
+    let x3 = vec![
+        Value::new(0.5, "x1"),
+        Value::new(1.0, "x2"),
+        Value::new(1.0, "x3"),
+    ];
+    let x4 = vec![
+        Value::new(1.0, "x1"),
+        Value::new(1.0, "x2"),
+        Value::new(-1.0, "x3"),
+    ];
+
+    let xs = vec![x1, x2, x3, x4];
+
+    // Desired Targets
+    let ys = vec![
+        Value::new(1.0, "y1"),
+        Value::new(-1.0, "y2"),
+        Value::new(-1.0, "y3"),
+        Value::new(1.0, "y4"),
+    ];
+
+    let mlp = MLP::new(3, vec![4, 4, 1]);
+
+    for _ in 0..500 {
+        let ypred = xs
+            .iter()
+            .flat_map(|x| mlp.call(x).into_iter())
+            .collect::<Vec<Value>>();
+
+        let loss = ypred
+            .iter()
+            .zip(ys.iter())
+            .map(|(y_out, y_gt)| {
+                let diff = y_out.to_owned() - y_gt.to_owned();
+                (y_out.to_owned() - y_gt.to_owned()) * diff
+            })
+            .sum::<Value>();
+        // / Value::new(ys.len() as f64, "n");
+
+        for p in mlp.parameters() {
+            p.0.borrow_mut().grad = 0.0;
+        }
+
+        loss.backward();
+
+        for p in mlp.parameters() {
+            let grad = p.0.borrow().grad;
+            p.0.borrow_mut().data += -0.075 * grad;
+        }
+
+        println!("loss: {:?}", loss.0.borrow().data);
+    }
+
+    println!(
+        "ys: {:?}",
+        ys.iter().map(|v| v.0.borrow().data).collect::<Vec<f64>>()
+    );
+    let ypred = xs.iter().flat_map(|x| mlp.call(x)).collect::<Vec<Value>>();
+
+    println!(
+        "mlp params: {:?}",
+        mlp.parameters()
+            .iter()
+            .map(|v| v.0.borrow().data)
+            .collect::<Vec<f64>>()
+    );
+
+    println!("ypred length: {:?}", ypred.len());
+
+    println!(
+        "ypred: {:?}",
+        ypred
+            .iter()
+            .map(|v| v.0.borrow().data)
+            .collect::<Vec<f64>>()
+    );
+
+    let loss = ypred
+        .iter()
+        .zip(ys.iter())
+        .map(|(y_out, y_gt)| {
+            let diff = y_out.to_owned() - y_gt.to_owned();
+            (y_out.to_owned() - y_gt.to_owned()) * diff
+        })
+        .sum::<Value>();
+
+    println!("loss: {:?}", loss.0.borrow().data);
+
+    create_graphviz(&loss, "./plots/binary_classifier.dot")
+}
+
+fn mlp_test() {
+    let x = vec![
+        Value::new(2.0, "a"),
+        Value::new(3.0, "b"),
+        Value::new(-1.0, "c"),
+    ];
+
+    let mlp = MLP::new(3, vec![4, 4, 1]);
+
+    let values = mlp.call(&x);
+
+    create_graphviz(&values[0], "./plots/mlp.dot");
+}
+
+fn layer_test() {
+    let x = vec![Value::new(2.0, "a"), Value::new(3.0, "b")];
+
+    let l1 = Layer::new(2, 3);
+
+    let values = l1.call(&x);
+
+    println!("values: {:?}", values);
+}
+
+fn neuron_test() {
+    let x = vec![Value::new(2.0, "a"), Value::new(3.0, "b")];
+
+    let n1 = Neuron::new(2, true);
+
+    let value = n1.call(&x);
+
+    println!("value: {:?}", value);
 }
 
 fn impl_ops_example() {

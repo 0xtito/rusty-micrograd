@@ -33,12 +33,12 @@ impl Eq for Value {}
 impl fmt::Debug for ValueInfo {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         f.debug_struct("ValueInfo")
-            .field("id", &self.id)
-            .field("label", &self.label)
+            // .field("id", &self.id)
+            // .field("label", &self.label)
             .field("value", &self.data)
-            .field("grad", &self.grad)
-            .field("prev", &self.prev)
-            .field("op", &self.op)
+            // .field("grad", &self.grad)
+            // .field("prev", &self.prev)
+            // .field("op", &self.op)
             .finish() // `_backward` is not included
     }
 }
@@ -67,7 +67,7 @@ impl fmt::Display for ValueInfo {
     }
 }
 
-impl ops::Add for Value {
+impl ops::Add<Value> for Value {
     type Output = Value;
 
     fn add(self, other: Value) -> Value {
@@ -87,6 +87,45 @@ impl ops::Add for Value {
         }));
 
         new_value
+    }
+}
+
+impl ops::Add<f64> for Value {
+    type Output = Value;
+
+    fn add(self, rhs: f64) -> Self::Output {
+        let new_value = Value(Rc::new(RefCell::new(ValueInfo {
+            id: Uuid::new_v4(),
+            label: "".to_string(),
+            grad: 0.0,
+            data: self.0.borrow().data + rhs,
+            prev: vec![self.clone()],
+            _backward: None,
+            op: Some(Op::Add),
+        })));
+
+        new_value.borrow_mut()._backward = Some(Box::new(|value: &ValueInfo| {
+            value.prev[0].borrow_mut().grad += 1.0 * value.grad;
+        }));
+
+        new_value
+    }
+}
+
+impl std::iter::Sum for Value {
+    fn sum<I: Iterator<Item = Self>>(mut iter: I) -> Self {
+        let first = iter.next().unwrap();
+
+        iter.fold(first, |acc, x| acc + x)
+
+        // let mut iter = iter.peekable();
+
+        // if let Some(first) = iter.peek().cloned() {
+        //     iter.fold(first, |acc, x| acc.add(&x, first.0.borrow().label.as_str()))
+        // } else {
+        //     // Return a default Value when summing an empty iterator
+        //     Value::new(0.0, "Sum of empty iterator")
+        // }
     }
 }
 
@@ -115,10 +154,37 @@ impl ops::Sub for Value {
     }
 }
 
-impl ops::Mul for Value {
+impl ops::Mul<f64> for Value {
     type Output = Value;
 
-    fn mul(self, other: Value) -> Value {
+    fn mul(self, rhs: f64) -> Self::Output {
+        let b_self = self.0.borrow();
+        let new_value = Value(Rc::new(RefCell::new(ValueInfo {
+            id: Uuid::new_v4(),
+            label: b_self.label.clone(),
+            grad: 0.0,
+            data: self.0.borrow().data * rhs,
+            prev: vec![self.clone()],
+            _backward: None,
+            op: Some(Op::Mul),
+        })));
+
+        new_value.borrow_mut()._backward = Some(Box::new(|value: &ValueInfo| {
+            let data_1 = value.prev[0].borrow().data;
+            let data_2 = value.prev[1].borrow().data;
+
+            value.prev[0].borrow_mut().grad += data_2 * value.grad;
+            value.prev[1].borrow_mut().grad += data_1 * value.grad;
+        }));
+
+        new_value
+    }
+}
+
+impl ops::Mul<Value> for Value {
+    type Output = Value;
+
+    fn mul(self, other: Value) -> Self::Output {
         let new_value = Value(Rc::new(RefCell::new(ValueInfo {
             id: Uuid::new_v4(),
             label: "".to_string(),
@@ -138,6 +204,15 @@ impl ops::Mul for Value {
         }));
 
         new_value
+    }
+}
+
+// Optionally, implement `Mul<Value> for f64` to allow `f64 * Value`
+impl ops::Mul<Value> for f64 {
+    type Output = Value;
+
+    fn mul(self, rhs: Value) -> Self::Output {
+        rhs * self
     }
 }
 

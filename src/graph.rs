@@ -20,11 +20,8 @@ fn recursive_build(
     node: &Value,
 ) -> NodeIndex {
     if let Some(ref node_props) = node_hash_map.get(&node.borrow().id) {
-        println!("node: {:?} already exists", node.borrow().id);
         return node_props.0;
     }
-
-    println!("node: {:?}", node);
 
     let node_index = graph.add_node(format!(
         " {} | data: {:.4} | grad: {:.4}",
@@ -69,7 +66,6 @@ fn build_graph(root_node: &Value) -> Graph {
             let node = node_index.1.borrow();
 
             if let Some(op) = &node.op {
-                println!("op: {:?}", op);
                 let op_str = match op {
                     Op::Add => "+",
                     Op::Mul => "*",
@@ -99,8 +95,6 @@ fn build_graph(root_node: &Value) -> Graph {
             let (_source1, target1) = (edge1.clone().0.index(), edge1.clone().1.index());
             let (_source2, target2) = (edge2.clone().0.index(), edge2.clone().1.index());
 
-            println!("edge1: {:?}, edge2: {:?}", edge1, edge2);
-
             if target1 == target2 {
                 let op_index = op_hash_map.get(&edge1.1).unwrap();
 
@@ -121,18 +115,12 @@ fn build_graph(root_node: &Value) -> Graph {
 pub fn create_graphviz(root_node: &Value, file_path: &str) {
     let graph = build_graph(root_node);
 
-    println!("{:?}", graph);
-
     let mut dot = format!("{:?}", Dot::new(&graph));
 
     // Hacky way to adjust graphviz output
     dot = dot.replace("\\\"", "");
     dot.insert_str(10, "    rankdir=\"LR\"");
     dot.insert_str(10, "    node [shape=box]\n");
-    println!("{}", dot);
 
     std::fs::write(file_path, dot.as_bytes()).unwrap();
-
-    // in jupyter notebook, call
-    // draw_graph(&graph);
 }
